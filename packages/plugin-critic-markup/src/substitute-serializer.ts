@@ -5,10 +5,11 @@ import { SchemaReady } from '@milkdown/core'
 /**
  * Milkdown plugin that wraps the remark processor's stringify method
  * to merge adjacent criticDelete + criticInsert mdast nodes into
- * criticSubstitute before stringification.
+ * criticSubstitute — but ONLY when they share a non-empty
+ * substituteGroupId, proving they originated from the same substitution.
  *
- * This ensures {~~old~>new~~} round-trips correctly through ProseMirror
- * where substitutions are stored as adjacent delete + insert marks.
+ * Independent adjacent delete + insert changes (no shared groupId)
+ * are left as separate constructs to preserve their distinct semantics.
  */
 export const criticSubstituteSerializerPlugin: MilkdownPlugin = (ctx) => {
   return async () => {
@@ -17,7 +18,6 @@ export const criticSubstituteSerializerPlugin: MilkdownPlugin = (ctx) => {
     const remark = ctx.get(remarkCtx)
     const originalStringify = remark.stringify.bind(remark)
 
-    // Monkey-patch stringify to merge substitutions before stringification
     ;(remark as any).stringify = (tree: any, ...args: any[]) => {
       mergeSubstitutions(tree)
       return originalStringify(tree, ...args)
@@ -35,7 +35,7 @@ function mergeSubstitutions(node: any) {
     mergeSubstitutions(child)
   }
 
-  // Merge adjacent criticDelete + criticInsert
+  // Merge adjacent criticDelete + criticInsert only when they share a substituteGroupId
   const merged: any[] = []
   let i = 0
   while (i < node.children.length) {
@@ -44,7 +44,10 @@ function mergeSubstitutions(node: any) {
 
     if (
       current?.type === 'criticDelete' &&
-      next?.type === 'criticInsert'
+      next?.type === 'criticInsert' &&
+      current.isMark &&
+      next.isMark &&
+      hasMatchingGroupId(current, next)
     ) {
       merged.push({
         type: 'criticSubstitute',
@@ -60,4 +63,18 @@ function mergeSubstitutions(node: any) {
   }
 
   node.children = merged
+}
+
+/**
+ * Check if two mdast nodes (serialized from PM marks) share a non-empty
+ * substituteGroupId. The groupId is stored as a mark attribute and
+ * propagated to the mdast node by Milkdown's serializer.
+ */
+function hasMatchingGroupId(deleteNode: any, insertNode: any): boolean {
+  const deleteGroupId = deleteNode.substituteGroupId
+  const insertGroupId = insertNode.substituteGroupId
+
+  // Only merge if both have a non-empty, matching groupId
+  if (!deleteGroupId || !insertGroupId) return false
+  return deleteGroupId === insertGroupId
 }

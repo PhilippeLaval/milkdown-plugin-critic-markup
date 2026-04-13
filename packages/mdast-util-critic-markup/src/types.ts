@@ -25,6 +25,7 @@ export interface CriticHighlight extends Parent {
 export interface CriticComment extends Literal {
   type: 'criticComment'
   value: string
+  threadId?: string
 }
 
 export type CriticNode =

@@ -83,8 +83,25 @@ function exitCriticHighlightData(this: CompileContext, token: Token) {
 function exitCriticCommentData(this: CompileContext, token: Token) {
   const raw = this.sliceSerialize(token)
   const value = raw.slice(0, -3) // strip `<<}`
-  const node = this.stack[this.stack.length - 1] as unknown as { value: string }
-  node.value += value
+  const node = this.stack[this.stack.length - 1] as unknown as { value: string; threadId?: string }
+
+  // Parse [@critic:threadId] prefix if present.
+  // Uses the `critic:` namespace to avoid collisions with user text.
+  //
+  // Escaping scheme (symmetric):
+  //   `[@critic:id] text`    → threadId="id", value="text"  (metadata)
+  //   `\[@critic:...] text`  → value="[@critic:...] text"   (escaped literal)
+  //   `\\[@critic:...] text` → value="\[@critic:...] text"  (escaped backslash)
+  const prefixMatch = value.match(/^\[@critic:([^\]]+)\]\s*/)
+  if (prefixMatch) {
+    node.threadId = prefixMatch[1]
+    node.value += value.slice(prefixMatch[0].length)
+  } else if (/^\\+\[@critic:/.test(value)) {
+    // Remove one layer of backslash escaping before [@critic:
+    node.value += value.slice(1)
+  } else {
+    node.value += value
+  }
 }
 
 function addTextChild(ctx: CompileContext, value: string) {

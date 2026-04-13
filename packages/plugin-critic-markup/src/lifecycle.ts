@@ -14,17 +14,20 @@ const criticLifecycleKey = new PluginKey('criticLifecycle')
 /**
  * Lifecycle plugin that:
  * 1. Hydrates threads from initialThreads on startup
- * 2. Reattaches hydrated threads to parsed comment nodes by matching root comment body
+ * 2. Migrates legacy comments (without [@critic:threadId]) by matching
+ *    hydrated threads to comment nodes by body text
  * 3. Populates criticChangesSlice from document state on every transaction
+ *
+ * Thread identity is now persisted in the Markdown via the `[@critic:threadId]`
+ * prefix. Legacy documents without the prefix get a one-time migration pass.
  */
 export const criticLifecyclePlugin = $prose((ctx) => {
-  // Hydrate threads from config on startup
   const config = ctx.get(criticThreadsConfigSlice)
   if (config.initialThreads && config.initialThreads.size > 0) {
     ctx.set(criticThreadsSlice, new Map(config.initialThreads))
   }
 
-  let hasReattached = false
+  let hasMigrated = false
 
   return new Plugin({
     key: criticLifecycleKey,
@@ -40,10 +43,9 @@ export const criticLifecyclePlugin = $prose((ctx) => {
     view() {
       return {
         update(view) {
-          // Reattach hydrated threads to comment nodes once on first render
-          if (!hasReattached) {
-            hasReattached = true
-            reattachThreads(ctx, view)
+          if (!hasMigrated) {
+            hasMigrated = true
+            migrateLegacyComments(ctx, view)
           }
 
           const changes = criticLifecycleKey.getState(view.state) as CriticChange[]
@@ -57,50 +59,57 @@ export const criticLifecyclePlugin = $prose((ctx) => {
 })
 
 /**
- * After the editor loads from Markdown, comment nodes have empty threadId.
- * This function matches them against hydrated threads using the root comment
- * body as the anchor key, and sets the threadId attribute on each node.
+ * One-time migration for legacy comments that don't have a threadId
+ * from the Markdown (pre-[@critic:] format). Matches hydrated threads
+ * to comment nodes by body text. Only runs on first editor render.
  */
-function reattachThreads(ctx: Ctx, view: import('prosemirror-view').EditorView) {
+function migrateLegacyComments(ctx: Ctx, view: import('prosemirror-view').EditorView) {
   const threads = ctx.get(criticThreadsSlice)
   if (threads.size === 0) return
 
-  // Build a lookup: root comment body -> thread
-  // If multiple threads share the same body, use document order
-  const bodyToThreads = new Map<string, CriticThread[]>()
+  // Build body → thread lookup for threads not yet matched to any comment
+  const bodyLookup = new Map<string, CriticThread[]>()
   for (const thread of threads.values()) {
     const rootBody = thread.comments[0]?.body ?? ''
-    const list = bodyToThreads.get(rootBody) ?? []
+    const list = bodyLookup.get(rootBody) ?? []
     list.push(thread)
-    bodyToThreads.set(rootBody, list)
+    bodyLookup.set(rootBody, list)
   }
 
-  // Track which body keys we've consumed (for duplicate comment texts)
-  const bodyIndexes = new Map<string, number>()
+  // Find comment nodes that already have a threadId (from Markdown)
+  const existingThreadIds = new Set<string>()
+  view.state.doc.descendants((node) => {
+    if (node.type === criticCommentNode.type(ctx) && node.attrs.threadId) {
+      existingThreadIds.add(node.attrs.threadId)
+    }
+    return true
+  })
 
+  // Only migrate comments without a threadId, matching to unused threads
   let tr = view.state.tr
   let changed = false
+  const usedThreadIds = new Set(existingThreadIds)
 
   view.state.doc.descendants((node, pos) => {
     if (node.type !== criticCommentNode.type(ctx)) return true
-    if (node.attrs.threadId) return false // already has a threadId
+    if (node.attrs.threadId) return false // already has threadId from Markdown
 
-    const commentBody = node.attrs.comment ?? ''
-    const candidates = bodyToThreads.get(commentBody)
-    if (!candidates || candidates.length === 0) return false
+    const candidates = bodyLookup.get(node.attrs.comment)
+    if (!candidates) return false
 
-    const idx = bodyIndexes.get(commentBody) ?? 0
-    if (idx >= candidates.length) return false
+    for (const candidate of candidates) {
+      if (!usedThreadIds.has(candidate.threadId)) {
+        tr = tr.setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          threadId: candidate.threadId,
+          resolved: candidate.resolved,
+        })
+        usedThreadIds.add(candidate.threadId)
+        changed = true
+        break
+      }
+    }
 
-    const thread = candidates[idx]
-    bodyIndexes.set(commentBody, idx + 1)
-
-    tr = tr.setNodeMarkup(pos, undefined, {
-      ...node.attrs,
-      threadId: thread.threadId,
-      resolved: thread.resolved,
-    })
-    changed = true
     return false
   })
 
@@ -111,9 +120,10 @@ function reattachThreads(ctx: Ctx, view: import('prosemirror-view').EditorView) 
 
 function buildChanges(ctx: Ctx, doc: import('prosemirror-model').Node): CriticChange[] {
   const changes: CriticChange[] = []
+  // Track substituteGroupIds already emitted so paired marks become one change
+  const seenGroupIds = new Set<string>()
 
   doc.descendants((node, pos) => {
-    // Comment nodes
     if (node.type === criticCommentNode.type(ctx)) {
       changes.push({
         id: node.attrs.threadId || `comment-${pos}`,
@@ -128,8 +138,28 @@ function buildChanges(ctx: Ctx, doc: import('prosemirror-model').Node): CriticCh
       return false
     }
 
-    // Mark-based changes
     for (const mark of node.marks) {
+      // Coalesce paired delete+insert with same substituteGroupId into one substitute change
+      const groupId: string = mark.attrs.substituteGroupId ?? ''
+      if (
+        groupId &&
+        (mark.type === criticInsertMark.type(ctx) || mark.type === criticDeleteMark.type(ctx))
+      ) {
+        if (!seenGroupIds.has(groupId)) {
+          seenGroupIds.add(groupId)
+          changes.push({
+            id: `substitute-${groupId}`,
+            type: 'substitute',
+            text: node.textContent,
+            authorId: mark.attrs.authorId,
+            resolved: false,
+            from: pos,
+            to: pos + node.nodeSize,
+          })
+        }
+        continue
+      }
+
       if (mark.type === criticInsertMark.type(ctx)) {
         changes.push({
           id: `insert-${pos}`,

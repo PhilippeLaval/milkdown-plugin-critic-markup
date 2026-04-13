@@ -4,7 +4,6 @@ import { criticMarkupToMarkdown } from './to-markdown.js'
 
 export { criticMarkupFromMarkdown } from './from-markdown.js'
 export { criticMarkupToMarkdown } from './to-markdown.js'
-export { remarkCriticSubstituteMerge } from './substitute-merge.js'
 export type {
   CriticDelete,
   CriticInsert,

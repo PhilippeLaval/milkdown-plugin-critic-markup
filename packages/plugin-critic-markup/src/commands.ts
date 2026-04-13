@@ -53,6 +53,36 @@ export const addHighlightCommand = $command('AddHighlight', (ctx) => () => {
   return toggleMark(criticHighlightMark.type(ctx))
 })
 
+// Substitution: wraps the selection with a criticDelete mark on the existing text,
+// then expects the user to type the replacement (which gets criticInsert).
+// Both marks share a substituteGroupId so the serializer can merge them.
+export const addSubstituteCommand = $command('AddSubstitute', (ctx) =>
+  (replacementText: string) => {
+    return (state: EditorState, dispatch?: CommandDispatch) => {
+      if (!dispatch) return state.selection.empty ? false : true
+      if (state.selection.empty) return false
+      if (!replacementText) return false
+
+      const { from, to } = state.selection
+
+      // Guard: substitution must stay within a single inline parent
+      const $from = state.doc.resolve(from)
+      const $to = state.doc.resolve(to)
+      if ($from.parent !== $to.parent) return false
+      const groupId = generateId()
+      const deleteMark = criticDeleteMark.type(ctx).create({ substituteGroupId: groupId })
+      const insertMark = criticInsertMark.type(ctx).create({ substituteGroupId: groupId })
+
+      let tr = state.tr
+      tr = tr.addMark(from, to, deleteMark)
+      const insertNode = state.schema.text(replacementText, [insertMark])
+      tr = tr.insert(to, insertNode)
+      dispatch(tr)
+      return true
+    }
+  },
+)
+
 // --- Comment command ---
 
 export const addCommentCommand = $command('AddComment', (ctx) => (commentText: string) => {
@@ -68,11 +98,12 @@ export const addCommentCommand = $command('AddComment', (ctx) => (commentText: s
       threadId,
     })
 
-    // Dispatch the PM transaction first
+    // Dispatch the PM transaction — threadId is now serialized into the
+    // Markdown via the [@threadId] prefix, so it survives round-trips natively
     const tr = state.tr.replaceSelectionWith(node)
     dispatch(tr)
 
-    // Only create thread state after successful dispatch
+    // Create thread state after successful dispatch
     const threads = new Map(ctx.get(criticThreadsSlice))
     const rootComment: CriticThreadComment = {
       commentId: generateId(),
@@ -84,7 +115,7 @@ export const addCommentCommand = $command('AddComment', (ctx) => (commentText: s
     }
     threads.set(threadId, {
       threadId,
-      anchorText: '',
+      anchorText: commentText,
       resolved: false,
       comments: [rootComment],
     })
@@ -125,8 +156,18 @@ export const acceptChangeCommand = $command('AcceptChange', (ctx) => (pos?: numb
     if (!nodeAt) return false
 
     for (const mark of nodeAt.marks) {
+      const groupId = mark.attrs.substituteGroupId
+
       if (mark.type === criticInsertMark.type(ctx)) {
-        // Accept insert: remove mark, keep text
+        if (groupId) {
+          // Part of a substitution pair — accept means keep insert, delete the paired delete
+          if (dispatch) {
+            acceptSubstitution(ctx, state, from, groupId, dispatch)
+            fireOnChange(options, 'accept', 'substitute', from, from, '')
+          }
+          return true
+        }
+        // Standalone insert: remove mark, keep text
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -138,7 +179,15 @@ export const acceptChangeCommand = $command('AcceptChange', (ctx) => (pos?: numb
       }
 
       if (mark.type === criticDeleteMark.type(ctx)) {
-        // Accept delete: remove text and mark
+        if (groupId) {
+          // Part of a substitution pair — accept means keep insert, delete the paired delete
+          if (dispatch) {
+            acceptSubstitution(ctx, state, from, groupId, dispatch)
+            fireOnChange(options, 'accept', 'substitute', from, from, '')
+          }
+          return true
+        }
+        // Standalone delete: remove text and mark
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -150,7 +199,6 @@ export const acceptChangeCommand = $command('AcceptChange', (ctx) => (pos?: numb
       }
 
       if (mark.type === criticHighlightMark.type(ctx)) {
-        // Accept highlight: remove mark, keep text
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -193,8 +241,18 @@ export const rejectChangeCommand = $command('RejectChange', (ctx) => (pos?: numb
     if (!nodeAt) return false
 
     for (const mark of nodeAt.marks) {
+      const groupId = mark.attrs.substituteGroupId
+
       if (mark.type === criticInsertMark.type(ctx)) {
-        // Reject insert: remove text and mark
+        if (groupId) {
+          // Part of a substitution pair — reject means keep delete text, remove insert text
+          if (dispatch) {
+            rejectSubstitution(ctx, state, from, groupId, dispatch)
+            fireOnChange(options, 'reject', 'substitute', from, from, '')
+          }
+          return true
+        }
+        // Standalone insert: remove text and mark
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -206,7 +264,14 @@ export const rejectChangeCommand = $command('RejectChange', (ctx) => (pos?: numb
       }
 
       if (mark.type === criticDeleteMark.type(ctx)) {
-        // Reject delete: remove mark, keep text
+        if (groupId) {
+          if (dispatch) {
+            rejectSubstitution(ctx, state, from, groupId, dispatch)
+            fireOnChange(options, 'reject', 'substitute', from, from, '')
+          }
+          return true
+        }
+        // Standalone delete: remove mark, keep text
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -218,7 +283,6 @@ export const rejectChangeCommand = $command('RejectChange', (ctx) => (pos?: numb
       }
 
       if (mark.type === criticHighlightMark.type(ctx)) {
-        // Reject highlight: remove mark, keep text
         if (dispatch) {
           const markFrom = findMarkStart(doc, from, mark.type)
           const markTo = findMarkEnd(doc, from, mark.type)
@@ -459,6 +523,109 @@ export const deleteCommentCommand = $command('DeleteComment', (ctx) =>
   },
 )
 
+// --- Substitution accept/reject helpers ---
+
+/**
+ * Find the contiguous substitution pair (delete + insert) touching `pos`.
+ * Only returns the immediately adjacent delete and insert nodes around
+ * the target position — does NOT scan the whole parent for the groupId,
+ * so duplicated substitutions with the same groupId are not affected.
+ */
+function findSubstitutionPair(
+  ctx: import('@milkdown/ctx').Ctx,
+  doc: import('prosemirror-model').Node,
+  pos: number,
+  groupId: string,
+): Array<{ from: number; to: number; markType: import('prosemirror-model').MarkType; type: 'delete' | 'insert' }> {
+  const $pos = doc.resolve(pos)
+  const parent = $pos.parent
+  const parentStart = $pos.start()
+  const targetIdx = $pos.index()
+  const ranges: Array<{ from: number; to: number; markType: import('prosemirror-model').MarkType; type: 'delete' | 'insert' }> = []
+
+  const tryChild = (i: number): boolean => {
+    if (i < 0 || i >= parent.childCount) return false
+    const child = parent.child(i)
+    for (const mark of child.marks) {
+      if (mark.attrs.substituteGroupId !== groupId) continue
+      const childPos = parentStart + parent.content.offsetAt(i)
+      if (mark.type === criticDeleteMark.type(ctx)) {
+        ranges.push({ from: childPos, to: childPos + child.nodeSize, markType: mark.type, type: 'delete' })
+        return true
+      } else if (mark.type === criticInsertMark.type(ctx)) {
+        ranges.push({ from: childPos, to: childPos + child.nodeSize, markType: mark.type, type: 'insert' })
+        return true
+      }
+    }
+    return false
+  }
+
+  // Walk the full contiguous run of siblings with matching groupId.
+  // A substitution can span multiple inline children (e.g. formatted text).
+  // Start from target, walk left until no match, then walk right.
+  for (let i = targetIdx; i >= 0; i--) {
+    if (!tryChild(i)) break
+  }
+  for (let i = targetIdx + 1; i < parent.childCount; i++) {
+    if (!tryChild(i)) break
+  }
+
+  return ranges
+}
+
+/**
+ * Accept a substitution: keep the insert text (remove its mark),
+ * delete the delete text. Scoped to the contiguous pair around pos.
+ */
+function acceptSubstitution(
+  ctx: import('@milkdown/ctx').Ctx,
+  state: EditorState,
+  pos: number,
+  groupId: string,
+  dispatch: CommandDispatch,
+) {
+  const ranges = findSubstitutionPair(ctx, state.doc, pos, groupId)
+  let tr = state.tr
+
+  // Process in reverse position order to maintain valid positions
+  ranges.sort((a, b) => b.from - a.from)
+  for (const range of ranges) {
+    if (range.type === 'delete') {
+      tr = tr.delete(range.from, range.to)
+    } else {
+      tr = tr.removeMark(range.from, range.to, range.markType)
+    }
+  }
+
+  dispatch(tr)
+}
+
+/**
+ * Reject a substitution: keep the delete text (remove its mark),
+ * delete the insert text. Scoped to the contiguous pair around pos.
+ */
+function rejectSubstitution(
+  ctx: import('@milkdown/ctx').Ctx,
+  state: EditorState,
+  pos: number,
+  groupId: string,
+  dispatch: CommandDispatch,
+) {
+  const ranges = findSubstitutionPair(ctx, state.doc, pos, groupId)
+  let tr = state.tr
+
+  ranges.sort((a, b) => b.from - a.from)
+  for (const range of ranges) {
+    if (range.type === 'insert') {
+      tr = tr.delete(range.from, range.to)
+    } else {
+      tr = tr.removeMark(range.from, range.to, range.markType)
+    }
+  }
+
+  dispatch(tr)
+}
+
 // --- Thread cleanup helpers ---
 
 function removeThreadForComment(ctx: import('@milkdown/ctx').Ctx, threadId: string) {
@@ -481,45 +648,54 @@ function removeAllThreads(ctx: import('@milkdown/ctx').Ctx) {
 
 // --- Helpers ---
 
+/**
+ * Find the start of the contiguous mark span containing `pos`.
+ * Walks backward from pos within the same parent block and stops
+ * at the first node that does NOT carry the mark.
+ */
 function findMarkStart(
   doc: import('prosemirror-model').Node,
   pos: number,
   markType: import('prosemirror-model').MarkType,
 ): number {
-  let start = pos
-  doc.nodesBetween(0, pos, (node, nodePos) => {
-    if (node.isText && mark(node, markType)) {
-      start = nodePos
-    }
-  })
-  // Walk backwards from pos
   const $pos = doc.resolve(pos)
-  let p = $pos.start()
-  doc.nodesBetween(p, pos, (node, nodePos) => {
-    if (node.isText && mark(node, markType)) {
-      start = nodePos
-    }
-  })
+  const parent = $pos.parent
+  const parentOffset = $pos.start()
+
+  let start = pos
+  for (let i = $pos.index(); i >= 0; i--) {
+    const child = parent.child(i)
+    if (!hasMark(child, markType)) break
+    start = parentOffset + parent.content.offsetAt(i)
+  }
   return start
 }
 
+/**
+ * Find the end of the contiguous mark span containing `pos`.
+ * Walks forward from pos within the same parent block and stops
+ * at the first node that does NOT carry the mark.
+ * Traverses past inline non-text nodes (hard breaks, atoms) if they carry the mark.
+ */
 function findMarkEnd(
   doc: import('prosemirror-model').Node,
   pos: number,
   markType: import('prosemirror-model').MarkType,
 ): number {
   const $pos = doc.resolve(pos)
-  const end = $pos.end()
-  let markEnd = pos
-  doc.nodesBetween(pos, end, (node, nodePos) => {
-    if (node.isText && mark(node, markType)) {
-      markEnd = nodePos + node.nodeSize
-    }
-  })
-  return markEnd
+  const parent = $pos.parent
+  const parentOffset = $pos.start()
+
+  let end = pos
+  for (let i = $pos.index(); i < parent.childCount; i++) {
+    const child = parent.child(i)
+    if (!hasMark(child, markType)) break
+    end = parentOffset + parent.content.offsetAt(i) + child.nodeSize
+  }
+  return end
 }
 
-function mark(
+function hasMark(
   node: import('prosemirror-model').Node,
   markType: import('prosemirror-model').MarkType,
 ): boolean {

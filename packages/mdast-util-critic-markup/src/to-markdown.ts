@@ -37,7 +37,16 @@ export function criticMarkupToMarkdown(): Options {
         return `{==${serializeChildren(node, state, info)}==}`
       },
       criticComment(node: CriticComment) {
-        return `{>>${node.value}<<}`
+        if (node.threadId) {
+          return `{>>[@critic:${node.threadId}] ${node.value}<<}`
+        }
+        // Escape: prepend `\` if the body starts with any number of `\` followed
+        // by `[@critic:`, so the parser can always strip exactly one layer.
+        let body = node.value
+        if (/^\\*\[@critic:/.test(body)) {
+          body = `\\${body}`
+        }
+        return `{>>${body}<<}`
       },
       criticSubstitute(node: CriticSubstitute, _parent: unknown, state: State, info: Info) {
         const oldContent = serializeChildren({ children: node.deleteChildren }, state, info)

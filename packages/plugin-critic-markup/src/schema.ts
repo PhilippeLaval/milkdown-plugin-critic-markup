@@ -1,7 +1,15 @@
 import { $markSchema, $nodeSchema } from '@milkdown/utils'
 
+let _groupCounter = 0
+function nextGroupId(): string {
+  return `subst-${++_groupCounter}-${Date.now().toString(36)}`
+}
+
 export const criticInsertMark = $markSchema('criticInsert', () => ({
-  attrs: { authorId: { default: '' } },
+  attrs: {
+    authorId: { default: '' },
+    substituteGroupId: { default: '' },
+  },
   inclusive: false,
   parseDOM: [{ tag: 'ins.critic' }],
   toDOM() {
@@ -18,13 +26,18 @@ export const criticInsertMark = $markSchema('criticInsert', () => ({
   toMarkdown: {
     match: (mark: any) => mark.type.name === 'criticInsert',
     runner: (state: any, mark: any) => {
-      state.withMark(mark, 'criticInsert')
+      state.withMark(mark, 'criticInsert', undefined, {
+        substituteGroupId: mark.attrs.substituteGroupId || undefined,
+      })
     },
   },
 }))
 
 export const criticDeleteMark = $markSchema('criticDelete', () => ({
-  attrs: { authorId: { default: '' } },
+  attrs: {
+    authorId: { default: '' },
+    substituteGroupId: { default: '' },
+  },
   inclusive: false,
   parseDOM: [{ tag: 'del.critic' }],
   toDOM() {
@@ -41,7 +54,9 @@ export const criticDeleteMark = $markSchema('criticDelete', () => ({
   toMarkdown: {
     match: (mark: any) => mark.type.name === 'criticDelete',
     runner: (state: any, mark: any) => {
-      state.withMark(mark, 'criticDelete')
+      state.withMark(mark, 'criticDelete', undefined, {
+        substituteGroupId: mark.attrs.substituteGroupId || undefined,
+      })
     },
   },
 }))
@@ -69,8 +84,9 @@ export const criticHighlightMark = $markSchema('criticHighlight', () => ({
   },
 }))
 
-// Substitution is a virtual node: it parses into adjacent criticDelete + criticInsert marks
-// in ProseMirror. The serializer detects this adjacency and emits {~~old~>new~~}.
+// Substitution parses into adjacent criticDelete + criticInsert marks
+// sharing the same substituteGroupId. The serializer only merges pairs
+// with a matching non-empty groupId.
 export const criticSubstituteNode = $nodeSchema('criticSubstitute', () => ({
   group: 'inline',
   inline: true,
@@ -82,24 +98,26 @@ export const criticSubstituteNode = $nodeSchema('criticSubstitute', () => ({
   parseMarkdown: {
     match: (node: { type: string }) => node.type === 'criticSubstitute',
     runner: (state: any, node: any, _nodeType: any) => {
-      // Convert substitute into adjacent delete + insert marks
       const deleteMarkType = state.schema.marks.criticDelete
       const insertMarkType = state.schema.marks.criticInsert
 
+      // Generate a shared groupId so the serializer knows these are paired
+      const groupId = nextGroupId()
+
       if (deleteMarkType && node.deleteChildren) {
-        state.openMark(deleteMarkType)
+        state.openMark(deleteMarkType, { substituteGroupId: groupId })
         state.next(node.deleteChildren)
         state.closeMark(deleteMarkType)
       }
       if (insertMarkType && node.insertChildren) {
-        state.openMark(insertMarkType)
+        state.openMark(insertMarkType, { substituteGroupId: groupId })
         state.next(node.insertChildren)
         state.closeMark(insertMarkType)
       }
     },
   },
   toMarkdown: {
-    match: () => false, // never matches — substitution is serialized via mark adjacency
+    match: () => false,
     runner: () => {},
   },
 }))
@@ -141,7 +159,10 @@ export const criticCommentNode = $nodeSchema('criticComment', () => ({
   parseMarkdown: {
     match: (node: { type: string }) => node.type === 'criticComment',
     runner: (state: any, node: any, nodeType: any) => {
-      state.addNode(nodeType, { comment: node.value ?? '' })
+      state.addNode(nodeType, {
+        comment: node.value ?? '',
+        threadId: node.threadId ?? '',
+      })
     },
   },
   toMarkdown: {
@@ -149,6 +170,7 @@ export const criticCommentNode = $nodeSchema('criticComment', () => ({
     runner: (state: any, node: any) => {
       state.addNode('criticComment', undefined, undefined, {
         value: node.attrs.comment,
+        threadId: node.attrs.threadId || undefined,
       })
     },
   },

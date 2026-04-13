@@ -33,7 +33,9 @@ describe('AddComment command safety', () => {
     const addCommentStart = source.indexOf("$command('AddComment'")
     expect(addCommentStart).toBeGreaterThan(-1)
 
-    const commandBody = source.slice(addCommentStart, addCommentStart + 1200)
+    // Find the end of the AddComment command (next $command or end of file)
+    const nextCommand = source.indexOf("$command('", addCommentStart + 1)
+    const commandBody = source.slice(addCommentStart, nextCommand > 0 ? nextCommand : undefined)
 
     // Verify the dispatch guard comes before any thread mutation
     const dispatchGuardPos = commandBody.indexOf('if (!dispatch) return true')
@@ -58,7 +60,9 @@ describe('AddComment command safety', () => {
     )
 
     const addCommentStart = source.indexOf("$command('AddComment'")
-    const commandBody = source.slice(addCommentStart, addCommentStart + 1200)
+    // Find the end of the AddComment command (next $command or end of file)
+    const nextCommand = source.indexOf("$command('", addCommentStart + 1)
+    const commandBody = source.slice(addCommentStart, nextCommand > 0 ? nextCommand : undefined)
 
     // dispatch(tr) must come before ctx.set(criticThreadsSlice)
     const dispatchCallPos = commandBody.indexOf('dispatch(tr)')
