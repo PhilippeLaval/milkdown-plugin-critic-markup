@@ -37,10 +37,15 @@ Editor.make()
 | `AddDelete` | Wrap selection as a deletion mark |
 | `AddHighlight` | Wrap selection as a highlight mark |
 | `AddComment` | Insert a comment node at cursor |
+| `AddSubstitute` | Replace selection (wraps old text as deletion, inserts new text) |
 | `AcceptChange` | Accept the critic mark at cursor |
 | `RejectChange` | Reject the critic mark at cursor |
 | `AcceptAllChanges` | Accept all changes in the document |
 | `RejectAllChanges` | Reject all changes in the document |
+| `AddReply` | Add a reply to a comment thread |
+| `ResolveThread` | Mark a comment thread as resolved/unresolved |
+| `EditComment` | Edit a comment in a thread (own comments only) |
+| `DeleteComment` | Delete a comment from a thread (own comments only) |
 
 ## Monorepo
 

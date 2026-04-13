@@ -57,7 +57,7 @@ export const addHighlightCommand = $command('AddHighlight', (ctx) => () => {
 // then expects the user to type the replacement (which gets criticInsert).
 // Both marks share a substituteGroupId so the serializer can merge them.
 export const addSubstituteCommand = $command('AddSubstitute', (ctx) =>
-  (replacementText: string) => {
+  (replacementText?: string) => {
     return (state: EditorState, dispatch?: CommandDispatch) => {
       if (!dispatch) return state.selection.empty ? false : true
       if (state.selection.empty) return false
@@ -85,10 +85,11 @@ export const addSubstituteCommand = $command('AddSubstitute', (ctx) =>
 
 // --- Comment command ---
 
-export const addCommentCommand = $command('AddComment', (ctx) => (commentText: string) => {
+export const addCommentCommand = $command('AddComment', (ctx) => (commentText?: string) => {
   return (state: EditorState, dispatch?: CommandDispatch) => {
     // Side-effect free when dispatch is absent (command probing)
     if (!dispatch) return true
+    if (!commentText) return false
 
     const options = ctx.get(criticMarkupOptionsSlice)
     const threadId = generateId()
@@ -371,8 +372,9 @@ export const rejectAllChangesCommand = $command('RejectAllChanges', (ctx) => () 
 // --- Threading commands ---
 
 export const addReplyCommand = $command('AddReply', (ctx) =>
-  (payload: { threadId: string; body: string; parentCommentId?: string }) => {
+  (payload?: { threadId: string; body: string; parentCommentId?: string }) => {
     return (_state: EditorState, _dispatch?: CommandDispatch) => {
+      if (!payload) return false
       const threads = ctx.get(criticThreadsSlice)
       const thread = threads.get(payload.threadId)
       if (!thread) return false
@@ -401,8 +403,9 @@ export const addReplyCommand = $command('AddReply', (ctx) =>
 )
 
 export const resolveThreadCommand = $command('ResolveThread', (ctx) =>
-  (payload: { threadId: string; resolved: boolean }) => {
+  (payload?: { threadId: string; resolved: boolean }) => {
     return (state: EditorState, dispatch?: CommandDispatch) => {
+      if (!payload) return false
       const threads = ctx.get(criticThreadsSlice)
       const thread = threads.get(payload.threadId)
       if (!thread) return false
@@ -440,8 +443,9 @@ export const resolveThreadCommand = $command('ResolveThread', (ctx) =>
 )
 
 export const editCommentCommand = $command('EditComment', (ctx) =>
-  (payload: { threadId: string; commentId: string; body: string }) => {
+  (payload?: { threadId: string; commentId: string; body: string }) => {
     return () => {
+      if (!payload) return false
       const threads = ctx.get(criticThreadsSlice)
       const thread = threads.get(payload.threadId)
       if (!thread) return false
@@ -469,8 +473,9 @@ export const editCommentCommand = $command('EditComment', (ctx) =>
 )
 
 export const deleteCommentCommand = $command('DeleteComment', (ctx) =>
-  (payload: { threadId: string; commentId: string }) => {
+  (payload?: { threadId: string; commentId: string }) => {
     return (state: EditorState, dispatch?: CommandDispatch) => {
+      if (!payload) return false
       const threads = ctx.get(criticThreadsSlice)
       const thread = threads.get(payload.threadId)
       if (!thread) return false
@@ -523,6 +528,15 @@ export const deleteCommentCommand = $command('DeleteComment', (ctx) =>
   },
 )
 
+/** Compute the offset of the i-th child within a Fragment (equivalent to Fragment.offsetAt). */
+function fragmentOffsetAt(fragment: import('prosemirror-model').Fragment, index: number): number {
+  let offset = 0
+  for (let i = 0; i < index; i++) {
+    offset += fragment.child(i).nodeSize
+  }
+  return offset
+}
+
 // --- Substitution accept/reject helpers ---
 
 /**
@@ -548,7 +562,7 @@ function findSubstitutionPair(
     const child = parent.child(i)
     for (const mark of child.marks) {
       if (mark.attrs.substituteGroupId !== groupId) continue
-      const childPos = parentStart + parent.content.offsetAt(i)
+      const childPos = parentStart + fragmentOffsetAt(parent.content, i)
       if (mark.type === criticDeleteMark.type(ctx)) {
         ranges.push({ from: childPos, to: childPos + child.nodeSize, markType: mark.type, type: 'delete' })
         return true
@@ -666,7 +680,7 @@ function findMarkStart(
   for (let i = $pos.index(); i >= 0; i--) {
     const child = parent.child(i)
     if (!hasMark(child, markType)) break
-    start = parentOffset + parent.content.offsetAt(i)
+    start = parentOffset + fragmentOffsetAt(parent.content, i)
   }
   return start
 }
@@ -690,7 +704,7 @@ function findMarkEnd(
   for (let i = $pos.index(); i < parent.childCount; i++) {
     const child = parent.child(i)
     if (!hasMark(child, markType)) break
-    end = parentOffset + parent.content.offsetAt(i) + child.nodeSize
+    end = parentOffset + fragmentOffsetAt(parent.content, i) + child.nodeSize
   }
   return end
 }

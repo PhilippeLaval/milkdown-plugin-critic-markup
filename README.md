@@ -20,6 +20,7 @@ Full [CriticMarkup](https://criticmarkup.com/) support for [Milkdown](https://mi
 | Substitution | `{~~old text~>new text~~}` | Replace old with new |
 | Highlight | `{==highlighted text==}` | Annotate / draw attention |
 | Comment | `{>>comment text<<}` | Inline margin comment |
+| Comment (threaded) | `{>>[@critic:threadId] comment text<<}` | Comment with thread identity for persistence |
 
 ## Quick Start
 

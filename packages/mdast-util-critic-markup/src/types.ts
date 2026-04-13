@@ -1,25 +1,28 @@
-import type { Parent, Literal, PhrasingContent } from 'mdast'
+import type { Literal, PhrasingContent } from 'mdast'
 
-export interface CriticDelete extends Parent {
+/** Base for critic nodes that contain phrasing children. */
+interface CriticParent {
+  children: PhrasingContent[]
+  position?: { start: { line: number; column: number; offset?: number }; end: { line: number; column: number; offset?: number } } | undefined
+  data?: Record<string, unknown> | undefined
+}
+
+export interface CriticDelete extends CriticParent {
   type: 'criticDelete'
-  children: PhrasingContent[]
 }
 
-export interface CriticInsert extends Parent {
+export interface CriticInsert extends CriticParent {
   type: 'criticInsert'
-  children: PhrasingContent[]
 }
 
-export interface CriticSubstitute extends Parent {
+export interface CriticSubstitute extends CriticParent {
   type: 'criticSubstitute'
-  children: PhrasingContent[]
   deleteChildren: PhrasingContent[]
   insertChildren: PhrasingContent[]
 }
 
-export interface CriticHighlight extends Parent {
+export interface CriticHighlight extends CriticParent {
   type: 'criticHighlight'
-  children: PhrasingContent[]
 }
 
 export interface CriticComment extends Literal {

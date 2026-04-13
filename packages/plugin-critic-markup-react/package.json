@@ -30,6 +30,9 @@
   "dependencies": {
     "@milkdown/plugin-critic-markup": "workspace:*"
   },
+  "devDependencies": {
+    "@types/react": "^19.0.0"
+  },
   "peerDependencies": {
     "@milkdown/core": ">=7.0.0",
     "@milkdown/ctx": ">=7.0.0",

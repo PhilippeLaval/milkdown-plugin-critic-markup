@@ -54,7 +54,7 @@ export function CriticSidebar({
       const body = replyText[threadId]
       if (!body?.trim()) return
       onReply?.(threadId, body.trim())
-      setReplyText((prev) => ({ ...prev, [threadId]: '' }))
+      setReplyText((prev: Record<string, string>) => ({ ...prev, [threadId]: '' }))
     },
     [replyText, onReply],
   )
@@ -69,13 +69,14 @@ export function CriticSidebar({
     [handleReply],
   )
 
-  const threadEntries = Array.from(threads.entries()).filter(
+  const allEntries: Array<[string, CriticThread]> = [...threads.entries()]
+  const threadEntries = allEntries.filter(
     ([, thread]) => showResolved || !thread.resolved,
   )
 
   // Find orphaned threads (threadId not found in changes)
   const activeThreadIds = new Set(
-    changes.filter((c) => c.type === 'comment').map((c) => c.id),
+    changes.filter((c: CriticChange) => c.type === 'comment').map((c: CriticChange) => c.id),
   )
   const orphanedThreads = threadEntries.filter(
     ([id]) => !activeThreadIds.has(id),
@@ -199,7 +200,7 @@ export function CriticSidebar({
                   placeholder: 'Reply\u2026',
                   value: replyText[threadId] ?? '',
                   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setReplyText((prev) => ({
+                    setReplyText((prev: Record<string, string>) => ({
                       ...prev,
                       [threadId]: e.target.value,
                     })),

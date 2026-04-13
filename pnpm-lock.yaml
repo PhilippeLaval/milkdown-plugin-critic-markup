@@ -12,20 +12,17 @@ importers:
         specifier: ^2.27.0
         version: 2.30.0(@types/node@20.19.39)
       '@milkdown/core':
-        specifier: ^7.20.0
+        specifier: '>=7.0.0'
         version: 7.20.0
       '@milkdown/ctx':
-        specifier: ^7.20.0
+        specifier: '>=7.0.0'
         version: 7.20.0
       '@milkdown/preset-commonmark':
-        specifier: ^7.20.0
+        specifier: '>=7.0.0'
         version: 7.20.0
       '@milkdown/utils':
-        specifier: ^7.20.0
+        specifier: '>=7.0.0'
         version: 7.20.0
-      '@rollup/rollup-darwin-x64':
-        specifier: ^4.60.1
-        version: 4.60.1
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.39
@@ -42,19 +39,19 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       prosemirror-commands:
-        specifier: ^1.7.1
+        specifier: '>=1.5.0'
         version: 1.7.1
       prosemirror-model:
-        specifier: ^1.25.4
+        specifier: '>=1.19.0'
         version: 1.25.4
       prosemirror-state:
-        specifier: ^1.4.4
+        specifier: '>=1.4.0'
         version: 1.4.4
       prosemirror-transform:
-        specifier: ^1.12.0
+        specifier: '>=1.7.0'
         version: 1.12.0
       prosemirror-view:
-        specifier: ^1.41.8
+        specifier: '>=1.31.0'
         version: 1.41.8
       tsup:
         specifier: ^8.0.0
@@ -66,7 +63,7 @@ importers:
         specifier: ^5.3.0
         version: 5.9.3
       vite:
-        specifier: ^5.4.21
+        specifier: ^5.4.0
         version: 5.4.21(@types/node@20.19.39)(lightningcss@1.32.0)
       vitest:
         specifier: ^1.2.0
@@ -74,6 +71,9 @@ importers:
 
   packages/mdast-util-critic-markup:
     dependencies:
+      '@types/mdast':
+        specifier: ^4.0.0
+        version: 4.0.4
       mdast-util-from-markdown:
         specifier: ^2.0.0
         version: 2.0.3
@@ -119,6 +119,9 @@ importers:
       micromark-extension-critic-markup:
         specifier: workspace:*
         version: link:../micromark-extension-critic-markup
+      prosemirror-commands:
+        specifier: '>=1.5.0'
+        version: 1.7.1
       prosemirror-model:
         specifier: '>=1.19.0'
         version: 1.25.4
@@ -146,6 +149,10 @@ importers:
       react-dom:
         specifier: '>=18.0.0'
         version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
 
 packages:
 
@@ -774,6 +781,9 @@ packages:
   '@types/node@20.19.39':
     resolution: {integrity: sha512-orrrD74MBUyK8jOAD/r0+lfa1I2MO6I+vAkmAWzMYbCcgrN4lCrmK52gRFQq/JRxfYPfonkr4b0jcY7Olqdqbw==}
 
+  '@types/react@19.2.14':
+    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
 
@@ -920,6 +930,9 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2480,7 +2493,8 @@ snapshots:
   '@rollup/rollup-darwin-arm64@4.60.1':
     optional: true
 
-  '@rollup/rollup-darwin-x64@4.60.1': {}
+  '@rollup/rollup-darwin-x64@4.60.1':
+    optional: true
 
   '@rollup/rollup-freebsd-arm64@4.60.1':
     optional: true
@@ -2582,6 +2596,10 @@ snapshots:
   '@types/node@20.19.39':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/react@19.2.14':
+    dependencies:
+      csstype: 3.2.3
 
   '@types/unist@3.0.3': {}
 
@@ -2727,6 +2745,8 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+
+  csstype@3.2.3: {}
 
   debug@4.4.3:
     dependencies:

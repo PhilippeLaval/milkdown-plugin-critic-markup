@@ -277,7 +277,8 @@ const criticCommentNode = $nodeSchema('criticComment', () => ({
 
 **Substitution** is represented as a `criticDelete` mark on the old text
 followed immediately by a `criticInsert` mark on the new text, both carrying
-the same `authorId`. The serializer detects this adjacency pattern and emits
+the same `substituteGroupId` (a unique ID generated per substitution pair).
+The serializer detects this adjacency pattern via matching group IDs and emits
 `{~~old~>new~~}`.
 
 ### 6.2 Milkdown ↔ mdast bridge
@@ -398,20 +399,39 @@ export interface CriticChangeEvent {
 
 ```typescript
 export const criticMarkupPlugin = [
+  // Ctx slices (must be registered first)
+  criticMarkupOptionsCtx,
+  criticThreadsCtx,
+  criticThreadsConfigCtx,
+  criticChangesCtx,
+  // Remark plugin
   criticRemarkPlugin,
+  // Schema
   criticInsertMark,
   criticDeleteMark,
   criticHighlightMark,
+  criticSubstituteNode,
   criticCommentNode,
+  // Commands
   addInsertCommand,
   addDeleteCommand,
   addHighlightCommand,
+  addSubstituteCommand,
   addCommentCommand,
   acceptChangeCommand,
   rejectChangeCommand,
   acceptAllChangesCommand,
   rejectAllChangesCommand,
-  criticDecorationsPlugin,    // see §7
+  addReplyCommand,
+  resolveThreadCommand,
+  editCommentCommand,
+  deleteCommentCommand,
+  // Substitution serializer (merges adjacent delete+insert back to {~~old~>new~~})
+  criticSubstituteSerializerPlugin,
+  // Lifecycle (thread hydration + changes slice population)
+  criticLifecyclePlugin,
+  // Decorations (floating toolbar)         see §7
+  criticDecorationsPlugin,
 ].flat()
 ```
 
@@ -738,26 +758,26 @@ These are reasonable v2 candidates once the core plugin is stable.
 
 ### 13.1 Design decision: where threads live
 
-CriticMarkup syntax has no concept of thread IDs or replies. Threading metadata
-must live outside the serialized Markdown. The plugin uses an **out-of-band
-ctx slice** approach:
+CriticMarkup syntax has no concept of thread IDs or replies. The plugin
+extends the comment syntax with a lightweight `[@critic:threadId]` prefix to
+persist thread identity in the Markdown itself:
 
 - The `criticComment` ProseMirror node gains a `threadId` attribute (UUID v4).
-- The Markdown serializes as plain `{>>comment text<<}` — zero syntax pollution.
-- All thread data (replies, authors, timestamps, resolution) lives in
-  `criticThreadsSlice`, a Milkdown ctx slice keyed by `threadId`.
-- The host app owns persistence: on document save, it serializes both the
-  Markdown and the threads slice to its backend (e.g. DynamoDB). On load, it
-  rehydrates the slice before the editor mounts.
+- When a `threadId` is present, the Markdown serializes as
+  `{>>[@critic:threadId] comment text<<}`. Without a `threadId`, it serializes
+  as plain `{>>comment text<<}`.
+- The `[@critic:]` prefix is parsed back on load to restore the `threadId`,
+  so thread identity survives Markdown round-trips without external state.
+- All thread data beyond identity (replies, authors, timestamps, resolution)
+  lives in `criticThreadsSlice`, a Milkdown ctx slice keyed by `threadId`.
+- The host app owns persistence of thread data: on document save, it serializes
+  both the Markdown and the threads slice to its backend (e.g. DynamoDB). On
+  load, it rehydrates the slice before the editor mounts.
 
-  This means the Markdown file remains valid CriticMarkup. The thread data is a
-  separate concern. If the threads store is unavailable, the editor degrades
-  gracefully — comments still render, replies are simply absent.
-
-  The `threadId` is not written into the Markdown, but it IS written into the
-  ProseMirror document JSON (if the host uses `doc.toJSON()` for persistence).
-  This is intentional: the PM JSON is the authoritative anchor for which thread
-  belongs to which comment mark in the document.
+  The Markdown file remains valid CriticMarkup — the `[@critic:]` prefix is
+  simply treated as part of the comment text by parsers that don't understand it.
+  If the threads store is unavailable, the editor degrades gracefully — comments
+  still render, replies are simply absent.
 
 ### 13.2 Data model
 
