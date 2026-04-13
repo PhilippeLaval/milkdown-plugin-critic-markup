@@ -1,0 +1,107 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+#editor {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 200px;
+  margin-bottom: 16px;
+}
+
+/* Milkdown editor wrapper */
+.milkdown .editor {
+  outline: none;
+}
+
+#controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+#controls button {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#controls button:hover {
+  background: #f3f4f6;
+}
+
+#output {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  min-height: 60px;
+}
+
+/* CriticMarkup styles */
+ins.critic {
+  text-decoration: underline;
+  text-decoration-color: #16a34a;
+  background-color: #dcfce7;
+  color: inherit;
+}
+
+del.critic {
+  text-decoration: line-through;
+  text-decoration-color: #dc2626;
+  background-color: #fee2e2;
+  color: #6b7280;
+}
+
+mark.critic {
+  background-color: #fef08a;
+  color: inherit;
+}
+
+span.critic-comment {
+  border-bottom: 2px dotted #d97706;
+  cursor: pointer;
+  user-select: none;
+}
+
+.critic.critic-active {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+.critic-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 2px 6px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.critic-toolbar-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.critic-toolbar-accept { color: #16a34a; }
+.critic-toolbar-reject { color: #dc2626; }

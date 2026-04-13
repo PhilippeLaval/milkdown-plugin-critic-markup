@@ -1,0 +1,44 @@
+{
+  "name": "mdast-util-critic-markup",
+  "version": "0.1.0",
+  "description": "mdast utility to parse and serialize CriticMarkup — fromMarkdown, toMarkdown, and a remark plugin",
+  "license": "MIT",
+  "author": "Philippe Laval",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup.git",
+    "directory": "packages/mdast-util-critic-markup"
+  },
+  "homepage": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup#readme",
+  "keywords": ["mdast", "remark", "critic-markup", "criticmarkup", "markdown", "track-changes", "unified"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "micromark-extension-critic-markup": "workspace:*",
+    "mdast-util-from-markdown": "^2.0.0",
+    "mdast-util-to-markdown": "^2.0.0",
+    "micromark-util-types": "^2.0.0"
+  },
+  "peerDependencies": {
+    "unified": ">=11.0.0"
+  },
+  "peerDependenciesMeta": {
+    "unified": {
+      "optional": true
+    }
+  }
+}

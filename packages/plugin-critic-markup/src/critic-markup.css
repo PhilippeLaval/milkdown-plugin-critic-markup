@@ -1,0 +1,123 @@
+/* Insertion — green underline */
+ins.critic {
+  text-decoration: underline;
+  text-decoration-color: #16a34a;
+  background-color: #dcfce7;
+  color: inherit;
+}
+
+/* Deletion — red strikethrough */
+del.critic {
+  text-decoration: line-through;
+  text-decoration-color: #dc2626;
+  background-color: #fee2e2;
+  color: #6b7280;
+}
+
+/* Highlight — amber background */
+mark.critic {
+  background-color: #fef08a;
+  color: inherit;
+}
+
+/* Comment anchor — amber dotted underline with icon */
+span.critic-comment {
+  border-bottom: 2px dotted #d97706;
+  cursor: pointer;
+  user-select: none;
+}
+
+span.critic-comment--resolved {
+  opacity: 0.5;
+}
+
+/* Active state (cursor inside mark) */
+.critic.critic-active {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* Floating toolbar */
+.critic-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 2px 6px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+  line-height: 1;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.critic-toolbar-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: background-color 0.15s;
+}
+
+.critic-toolbar-btn:hover {
+  background-color: #f3f4f6;
+}
+
+.critic-toolbar-accept {
+  color: #16a34a;
+}
+
+.critic-toolbar-accept:hover {
+  background-color: #dcfce7;
+}
+
+.critic-toolbar-reject {
+  color: #dc2626;
+}
+
+.critic-toolbar-reject:hover {
+  background-color: #fee2e2;
+}
+
+.critic-toolbar-resolve {
+  color: #2563eb;
+}
+
+.critic-toolbar-resolve:hover {
+  background-color: #dbeafe;
+}
+
+.critic-toolbar-author {
+  color: #6b7280;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.critic-toolbar-chip {
+  color: #6b7280;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+/* Small viewport — fixed bottom bar */
+@media (max-width: 479px) {
+  .critic-toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    border-radius: 0;
+    border-top: 1px solid #e5e7eb;
+    justify-content: center;
+    padding: 8px 16px;
+    z-index: 1000;
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "micromark-extension-critic-markup",
+  "version": "0.1.0",
+  "description": "Micromark extension to parse CriticMarkup syntax ({++insert++}, {--delete--}, {~~sub~>stitution~~}, {==highlight==}, {>>comment<<})",
+  "license": "MIT",
+  "author": "Philippe Laval",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup.git",
+    "directory": "packages/micromark-extension-critic-markup"
+  },
+  "homepage": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup#readme",
+  "keywords": ["micromark", "extension", "critic-markup", "criticmarkup", "markdown", "track-changes"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "micromark-util-symbol": "^2.0.0",
+    "micromark-util-types": "^2.0.0"
+  }
+}
