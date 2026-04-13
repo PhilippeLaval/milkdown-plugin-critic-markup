@@ -1,0 +1,45 @@
+{
+  "name": "@milkdown/plugin-critic-markup",
+  "version": "0.1.0",
+  "description": "Milkdown plugin for CriticMarkup — schema, commands, decorations, floating toolbar, and comment threading",
+  "license": "MIT",
+  "author": "Philippe Laval",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup.git",
+    "directory": "packages/plugin-critic-markup"
+  },
+  "homepage": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup#readme",
+  "keywords": ["milkdown", "plugin", "critic-markup", "criticmarkup", "prosemirror", "track-changes", "markdown", "editor"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "micromark-extension-critic-markup": "workspace:*",
+    "mdast-util-critic-markup": "workspace:*"
+  },
+  "peerDependencies": {
+    "@milkdown/core": ">=7.0.0",
+    "@milkdown/ctx": ">=7.0.0",
+    "@milkdown/preset-commonmark": ">=7.0.0",
+    "@milkdown/utils": ">=7.0.0",
+    "prosemirror-commands": ">=1.5.0",
+    "prosemirror-model": ">=1.19.0",
+    "prosemirror-state": ">=1.4.0",
+    "prosemirror-view": ">=1.31.0"
+  }
+}
