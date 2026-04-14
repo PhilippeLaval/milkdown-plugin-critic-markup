@@ -13,6 +13,7 @@ import highlightsMd from './test-files/highlights.md?raw'
 import commentsMd from './test-files/comments.md?raw'
 import edgeCasesMd from './test-files/edge-cases.md?raw'
 import mixedMd from './test-files/mixed.md?raw'
+import investmentMemoMd from './test-files/investment-memo.md?raw'
 
 const testFiles: Record<string, string> = {
   basic: basicMd,
@@ -23,6 +24,7 @@ const testFiles: Record<string, string> = {
   comments: commentsMd,
   'edge-cases': edgeCasesMd,
   mixed: mixedMd,
+  'investment-memo': investmentMemoMd,
 }
 
 const initialMarkdown = basicMd
