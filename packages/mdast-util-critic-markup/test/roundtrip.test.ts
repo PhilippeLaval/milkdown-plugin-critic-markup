@@ -167,6 +167,30 @@ describe('mdast-util-critic-markup', () => {
       expect(roundTrip('{>>comment\nspanning\nlines<<}')).toBe('{>>comment\nspanning\nlines<<}')
     })
 
+    it('should parse inline markdown inside critic spans', () => {
+      const tree = parse('{++**88 employees** (Ninja verified)++}')
+      const paragraph = tree.children[0]
+      if (paragraph.type !== 'paragraph') throw new Error('expected paragraph')
+      const insert = paragraph.children.find(
+        (c: { type: string }) => c.type === 'criticInsert',
+      ) as { type: string; children: Array<{ type: string }> } | undefined
+      expect(insert).toBeDefined()
+      const types = insert!.children.map((c) => c.type)
+      expect(types).toContain('strong')
+    })
+
+    it('should round-trip inline markdown inside insert/delete/highlight', () => {
+      expect(roundTrip('{++**bold** text++}')).toBe('{++**bold** text++}')
+      expect(roundTrip('{--*italic*--}')).toBe('{--*italic*--}')
+      expect(roundTrip('{==[link](https://example.com)==}')).toBe(
+        '{==[link](https://example.com)==}',
+      )
+    })
+
+    it('should round-trip inline markdown inside substitution', () => {
+      expect(roundTrip('{~~**old**~>**new**~~}')).toBe('{~~**old**~>**new**~~}')
+    })
+
     it('should handle comment with special characters (XSS safe)', () => {
       const tree = parse('{>> <b>xss</b> <<}')
       const paragraph = tree.children[0]
