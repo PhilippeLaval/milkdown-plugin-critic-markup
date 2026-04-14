@@ -6,33 +6,66 @@ import type { PhrasingContent } from 'mdast'
 // content by slicing the parent token and trimming the 3-char markers on each
 // side — this is robust across line endings (where data tokens are split).
 //
-// Inner content of inline critic spans (no line endings) is re-parsed with
-// fromMarkdown so embedded markdown like `**bold**` or `[link](url)` becomes
-// real mdast children instead of literal text. Multi-line spans stay as raw
-// text — they typically wrap block content (headings, tables) which can't be
-// represented as PhrasingContent on a critic mark anyway.
+// Inner content of critic spans is re-parsed with fromMarkdown so embedded
+// markdown (`**bold**`, `[link](url)`, etc.) becomes real mdast children
+// instead of literal text. For multi-line spans we parse each line in
+// isolation: a CriticMarkup mark is phrasing-only, so block constructs
+// (headings, tables) can't round-trip anyway and stay as literal text — but
+// per-line inline markdown still renders correctly.
 
-function parseInlineChildren(raw: string): PhrasingContent[] | null {
-  if (raw.length === 0 || raw.includes('\n')) return null
+// Walk parsed inline children and invalidate position offsets. Milkdown's
+// `remarkMarker` plugin reads `file.value.charAt(node.position.start.offset)`
+// to infer `*`/`_` for strong/emphasis. Our re-parsed nodes carry positions
+// relative to the inner critic content, but `file.value` is the outer
+// document — so a 0-offset strong inside `{++**bold**++}` would read `{` and
+// serialize back as `{{bold{{`. Setting offset to -1 makes `charAt` return an
+// empty string, and the strong/emphasis handlers fall back to their `*`/`_`
+// defaults.
+function invalidatePositions(nodes: unknown[]): void {
+  for (const n of nodes) {
+    const node = n as { position?: { start?: { offset?: number }; end?: { offset?: number } }; children?: unknown[] }
+    if (node.position?.start) node.position.start.offset = -1
+    if (node.position?.end) node.position.end.offset = -1
+    if (Array.isArray(node.children)) invalidatePositions(node.children)
+  }
+}
+
+function parseLineInline(line: string): PhrasingContent[] {
+  if (!line) return []
   // fromMarkdown trims leading/trailing whitespace inside paragraphs, so we
   // peel it off and re-attach as text nodes to preserve `{++ spaced ++}`.
-  const lead = raw.match(/^\s*/)![0]
-  const trail = raw.slice(lead.length).match(/\s*$/)![0]
-  const mid = raw.slice(lead.length, raw.length - trail.length)
-  if (!mid) return null
-  let tree: ReturnType<typeof fromMarkdown>
-  try {
-    tree = fromMarkdown(mid)
-  } catch {
-    return null
-  }
-  if (tree.children.length !== 1 || tree.children[0].type !== 'paragraph') return null
-  const inner = tree.children[0].children as PhrasingContent[]
+  const lead = line.match(/^\s*/)![0]
+  const trail = line.slice(lead.length).match(/\s*$/)![0]
+  const mid = line.slice(lead.length, line.length - trail.length)
   const out: PhrasingContent[] = []
   if (lead) out.push({ type: 'text', value: lead })
-  out.push(...inner)
+  if (mid) {
+    let children: PhrasingContent[] | null = null
+    try {
+      const tree = fromMarkdown(mid)
+      if (tree.children.length === 1 && tree.children[0].type === 'paragraph') {
+        children = tree.children[0].children as PhrasingContent[]
+        invalidatePositions(children)
+      }
+    } catch {
+      // swallow — fall through to literal text
+    }
+    if (children) out.push(...children)
+    else out.push({ type: 'text', value: mid })
+  }
   if (trail) out.push({ type: 'text', value: trail })
   return out
+}
+
+function parseInlineChildren(raw: string): PhrasingContent[] | null {
+  if (raw.length === 0) return null
+  const lines = raw.split('\n')
+  const out: PhrasingContent[] = []
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) out.push({ type: 'text', value: '\n' })
+    out.push(...parseLineInline(lines[i]))
+  }
+  return out.length > 0 ? out : null
 }
 
 function setChildren(ctx: CompileContext, children: PhrasingContent[]) {
