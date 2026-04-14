@@ -191,6 +191,58 @@ describe('mdast-util-critic-markup', () => {
       expect(roundTrip('{~~**old**~>**new**~~}')).toBe('{~~**old**~>**new**~~}')
     })
 
+    it('should parse inline markdown on each line of a multi-line critic span', () => {
+      // Regression: THESIS-ALIGNMENT report has a multi-line insertion that
+      // contains `**#Mined**` and `**December 2018**`. Even though the span
+      // also contains a heading line (which cannot be represented as phrasing),
+      // the per-line inline markdown should still parse into real mdast nodes.
+      const input =
+        '{++## Pipeline Status\nSESAMm is at **#Mined** stage since **December 2018**.++}'
+      const tree = parse(input)
+      const paragraph = tree.children[0]
+      if (paragraph.type !== 'paragraph') throw new Error('expected paragraph')
+      const insert = paragraph.children.find(
+        (c: { type: string }) => c.type === 'criticInsert',
+      ) as { type: string; children: Array<{ type: string }> } | undefined
+      expect(insert).toBeDefined()
+      const strongCount = insert!.children.filter((c) => c.type === 'strong').length
+      expect(strongCount).toBe(2)
+    })
+
+    it('should round-trip multi-line insertion with inline bold', () => {
+      const input =
+        '{++## Pipeline Status\nSESAMm is at **#Mined** stage since **December 2018**.++}'
+      expect(roundTrip(input)).toBe(input)
+    })
+
+    it('should serialize a Milkdown-shaped mdast tree correctly', () => {
+      // Milkdown's serializer builds marks as nested mdast nodes with
+      // `isMark: true`. Reproduce what Milkdown would emit for `{++**bold**++}`.
+      const tree = {
+        type: 'root',
+        children: [
+          {
+            type: 'paragraph',
+            children: [
+              {
+                type: 'criticInsert',
+                isMark: true,
+                children: [
+                  {
+                    type: 'strong',
+                    isMark: true,
+                    children: [{ type: 'text', value: 'bold' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }
+      const out = serialize(tree as never).trim()
+      expect(out).toBe('{++**bold**++}')
+    })
+
     it('should handle comment with special characters (XSS safe)', () => {
       const tree = parse('{>> <b>xss</b> <<}')
       const paragraph = tree.children[0]
