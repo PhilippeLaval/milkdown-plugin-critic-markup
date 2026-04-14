@@ -1,5 +1,6 @@
 import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core'
 import { commonmark } from '@milkdown/preset-commonmark'
+import { gfm } from '@milkdown/preset-gfm'
 import { criticMarkupPlugin } from '../packages/plugin-critic-markup/src/index.js'
 import { getMarkdown, replaceAll } from '@milkdown/utils'
 
@@ -33,6 +34,7 @@ async function main() {
       ctx.set(defaultValueCtx, initialMarkdown)
     })
     .use(commonmark)
+    .use(gfm)
     .use(criticMarkupPlugin)
     .create()
 
