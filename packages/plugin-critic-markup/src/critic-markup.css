@@ -106,6 +106,17 @@ span.critic-comment--resolved {
   padding: 0 4px;
 }
 
+.critic-toolbar-comment-body {
+  color: #374151;
+  font-size: 12px;
+  padding: 0 6px;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-right: 1px solid #e5e7eb;
+}
+
 /* Small viewport — fixed bottom bar */
 @media (max-width: 479px) {
   .critic-toolbar {

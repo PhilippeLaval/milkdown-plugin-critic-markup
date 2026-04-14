@@ -63,7 +63,11 @@ function renderToolbarWidget(ctx: Ctx, markTypeName: string, pos: number): (view
   }
 }
 
-function renderCommentToolbarWidget(ctx: Ctx, threadId: string): (view: import('prosemirror-view').EditorView) => HTMLElement {
+function renderCommentToolbarWidget(
+  ctx: Ctx,
+  threadId: string,
+  body: string,
+): (view: import('prosemirror-view').EditorView) => HTMLElement {
   return (view) => {
     const container = document.createElement('span')
     container.className = 'critic-toolbar'
@@ -72,6 +76,17 @@ function renderCommentToolbarWidget(ctx: Ctx, threadId: string): (view: import('
     const threads = ctx.get(criticThreadsSlice)
     const thread = threads.get(threadId)
     const replyCount = thread ? thread.comments.length - 1 : 0
+
+    // Prefer the thread's first comment body if a thread exists; otherwise
+    // fall back to the body stored on the node itself.
+    const summaryText = thread?.comments[0]?.body ?? body
+
+    if (summaryText) {
+      const bodyEl = document.createElement('span')
+      bodyEl.className = 'critic-toolbar-comment-body'
+      bodyEl.textContent = summaryText
+      container.appendChild(bodyEl)
+    }
 
     const chipBtn = document.createElement('span')
     chipBtn.className = 'critic-toolbar-chip'
@@ -144,7 +159,7 @@ export const criticDecorationsPlugin = $prose((ctx) => {
                 decorations.push(
                   Decoration.widget(
                     pos + node.nodeSize,
-                    renderCommentToolbarWidget(ctx, node.attrs.threadId),
+                    renderCommentToolbarWidget(ctx, node.attrs.threadId, node.attrs.comment),
                     { side: 1 },
                   ),
                 )

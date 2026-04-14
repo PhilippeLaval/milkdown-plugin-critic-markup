@@ -1,4 +1,5 @@
 import type { Effects, State, TokenizeContext, Code } from 'micromark-util-types'
+import { markdownLineEnding } from 'micromark-util-character'
 
 declare module 'micromark-util-types' {
   interface TokenTypeMap {
@@ -32,9 +33,10 @@ type TokenName = keyof import('micromark-util-types').TokenTypeMap
 /**
  * Creates a tokenizer for a simple CriticMarkup construct.
  *
- * The key design: data token is never split by false-positive close attempts.
- * We only exit data and enter close when the FULL close sequence (closeChar + closeChar + `}`)
- * is confirmed. Partial matches continue as part of data.
+ * Data tokens never split on false-positive close attempts — only the full
+ * close sequence (`closeChar closeChar }`) ends the construct. Line endings
+ * inside the construct are emitted as separate `lineEnding` tokens so that
+ * micromark's subtokenize can re-process the enclosing text correctly.
  */
 function createSimpleTokenizer(
   openChar: number,
@@ -76,8 +78,8 @@ function createSimpleTokenizer(
 
     function data(code: Code): State | undefined {
       if (code === null) return nok(code)
+      if (markdownLineEnding(code)) return lineEnding(code)
       if (code === closeChar) {
-        // Potential close — but don't exit data yet. Just consume.
         effects.consume(code)
         return maybeCloseSecond
       }
@@ -85,47 +87,39 @@ function createSimpleTokenizer(
       return data
     }
 
+    function lineEnding(code: Code): State | undefined {
+      effects.exit(dataToken)
+      effects.enter('lineEnding')
+      effects.consume(code)
+      effects.exit('lineEnding')
+      effects.enter(dataToken)
+      return data
+    }
+
     function maybeCloseSecond(code: Code): State | undefined {
       if (code === closeChar) {
-        // Two close chars in a row — check for `}`
         effects.consume(code)
         return maybeCloseEnd
       }
-      // Not a close — the first closeChar was just data
       if (code === null) return nok(code)
+      if (markdownLineEnding(code)) return lineEnding(code)
       effects.consume(code)
       return data
     }
 
     function maybeCloseEnd(code: Code): State | undefined {
       if (code === 125) { // `}`
-        // Full close confirmed! Now we need to retroactively treat the last 2 chars
-        // as part of the close token. But since we already consumed them in data,
-        // we can't split. Instead, we exit data (which includes the close chars)
-        // and handle this in from-markdown by trimming.
-        //
-        // Actually, let's restructure: exit data BEFORE the close chars.
-        // But we already consumed them... This is the micromark problem.
-        //
-        // The correct approach: exit data, enter close, consume `}`, exit close.
-        // But the close chars are already consumed as data. We need a different approach.
-        //
-        // Let me use the approach where we exit data right before consuming the first
-        // potential close char, and re-enter data if it fails.
-        // That's what the original code did, but it split data tokens.
-        //
-        // Alternative: accept that data includes the close markers, and strip them
-        // in from-markdown. This is simpler and avoids the split data issue.
-        effects.consume(code) // consume `}`
+        effects.consume(code)
         effects.exit(dataToken)
         effects.exit(parentToken)
         return ok
       }
-      // Two close chars but no `}` — they were just data
       if (code === null) return nok(code)
+      if (markdownLineEnding(code)) return lineEnding(code)
       effects.consume(code)
       return data
     }
+    void closeToken
   }
 }
 
@@ -153,9 +147,6 @@ export const tokenizeCriticComment = createSimpleTokenizer(
 
 /**
  * Substitution tokenizer: `{~~old~>new~~}`
- *
- * Similar to the simple tokenizer but with a separator `~>` between old and new data.
- * Data tokens include the close markers; from-markdown strips them.
  */
 export function tokenizeCriticSubstitute(
   this: TokenizeContext,
@@ -163,8 +154,6 @@ export function tokenizeCriticSubstitute(
   ok: State,
   nok: State,
 ): State {
-  let foundSeparator = false
-
   return start
 
   function start(code: Code): State | undefined {
@@ -191,6 +180,7 @@ export function tokenizeCriticSubstitute(
 
   function oldData(code: Code): State | undefined {
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return oldLineEnding(code)
     if (code === 126) { // `~`
       effects.consume(code)
       return maybeSeparator
@@ -199,47 +189,59 @@ export function tokenizeCriticSubstitute(
     return oldData
   }
 
+  function oldLineEnding(code: Code): State | undefined {
+    effects.exit('criticSubstituteOldData')
+    effects.enter('lineEnding')
+    effects.consume(code)
+    effects.exit('lineEnding')
+    effects.enter('criticSubstituteOldData')
+    return oldData
+  }
+
   function maybeSeparator(code: Code): State | undefined {
-    if (code === 62) { // `>`  — confirmed `~>` separator
+    if (code === 62) { // `>`
       effects.exit('criticSubstituteOldData')
       effects.enter('criticSubstituteSeparator')
-      // The `~` was already consumed as old data — we need to adjust.
-      // Actually the `~` is already consumed. Let's include it in old data
-      // and the `>` starts the separator. But that means old data includes `~`.
-      // Simpler: consume `>`, exit separator, enter new data.
-      // We'll strip the trailing `~` from old data in from-markdown.
       effects.consume(code)
       effects.exit('criticSubstituteSeparator')
       effects.enter('criticSubstituteNewData')
-      foundSeparator = true
       return newData
     }
-    // Not separator — `~` was just data, but could be start of close `~~}`
-    if (code === 126) { // another `~` — could be `~~}`
+    if (code === 126) {
       effects.consume(code)
       return maybeOldClose
     }
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return oldLineEnding(code)
     effects.consume(code)
     return oldData
   }
 
   function maybeOldClose(code: Code): State | undefined {
-    if (code === 125) { // `}` — but we haven't found separator yet
-      return nok(code) // invalid — no separator
-    }
+    if (code === 125) return nok(code) // `~~}` without separator → invalid
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return oldLineEnding(code)
     effects.consume(code)
     return oldData
   }
 
   function newData(code: Code): State | undefined {
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return newLineEnding(code)
     if (code === 126) {
       effects.consume(code)
       return maybeCloseSecond
     }
     effects.consume(code)
+    return newData
+  }
+
+  function newLineEnding(code: Code): State | undefined {
+    effects.exit('criticSubstituteNewData')
+    effects.enter('lineEnding')
+    effects.consume(code)
+    effects.exit('lineEnding')
+    effects.enter('criticSubstituteNewData')
     return newData
   }
 
@@ -249,6 +251,7 @@ export function tokenizeCriticSubstitute(
       return maybeCloseEnd
     }
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return newLineEnding(code)
     effects.consume(code)
     return newData
   }
@@ -261,6 +264,7 @@ export function tokenizeCriticSubstitute(
       return ok
     }
     if (code === null) return nok(code)
+    if (markdownLineEnding(code)) return newLineEnding(code)
     effects.consume(code)
     return newData
   }
