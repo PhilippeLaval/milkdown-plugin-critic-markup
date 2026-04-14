@@ -3,18 +3,79 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CriticMarkup E2E Test</title>
+  <title>CriticMarkup Playground</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <h1>CriticMarkup E2E Test</h1>
-  <div id="editor"></div>
-  <div id="controls">
-    <button id="btn-accept-all">Accept All</button>
-    <button id="btn-reject-all">Reject All</button>
-    <button id="btn-serialize">Serialize</button>
+  <header class="header">
+    <h1>CriticMarkup Playground</h1>
+    <p class="subtitle">Milkdown editor with full CriticMarkup support</p>
+  </header>
+
+  <div class="layout">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">File</span>
+        <button id="btn-load" title="Load .md file from disk">Load File</button>
+        <button id="btn-save" title="Save editor content as .md file">Save File</button>
+        <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display:none" />
+      </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">Test Files</span>
+        <select id="test-file-select">
+          <option value="">-- Select a test file --</option>
+          <option value="basic">Basic (all 5 types)</option>
+          <option value="insertions">Insertions</option>
+          <option value="deletions">Deletions</option>
+          <option value="substitutions">Substitutions</option>
+          <option value="highlights">Highlights</option>
+          <option value="comments">Comments</option>
+          <option value="edge-cases">Edge Cases</option>
+          <option value="mixed">Mixed / Complex</option>
+        </select>
+        <button id="btn-load-test">Load</button>
+      </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">Changes</span>
+        <button id="btn-accept-all" class="btn-accept">Accept All</button>
+        <button id="btn-reject-all" class="btn-reject">Reject All</button>
+      </div>
+
+      <div class="toolbar-group">
+        <span class="toolbar-label">View</span>
+        <button id="btn-serialize">Show Markdown</button>
+        <button id="btn-toggle-output" class="btn-toggle">Hide Output</button>
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor-container">
+      <div class="editor-label">Editor <span id="file-name" class="file-name-badge"></span></div>
+      <div id="editor"></div>
+    </div>
+
+    <!-- Output panel -->
+    <div id="output-panel" class="output-panel">
+      <div class="output-header">
+        <span class="editor-label">Raw Markdown</span>
+        <button id="btn-copy" class="btn-small" title="Copy to clipboard">Copy</button>
+      </div>
+      <pre id="output"></pre>
+    </div>
   </div>
-  <pre id="output"></pre>
+
+  <footer class="footer">
+    <div class="shortcuts">
+      <strong>Shortcuts:</strong>
+      <kbd>Alt+Enter</kbd> Accept change &nbsp;
+      <kbd>Alt+Backspace</kbd> Reject change &nbsp;
+      Click on a change to see the floating toolbar
+    </div>
+  </footer>
+
   <script type="module" src="./main.ts"></script>
 </body>
 </html>
