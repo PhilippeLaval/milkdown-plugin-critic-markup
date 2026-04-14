@@ -215,6 +215,29 @@ describe('mdast-util-critic-markup', () => {
       expect(roundTrip(input)).toBe(input)
     })
 
+    it('should round-trip a critic span whose line begins with a list marker', () => {
+      // Regression: `- **text**` would parse as a block list, fall back to a
+      // literal text node, and mdast-util-to-markdown would then escape the
+      // `**` as `\*\*` — with each extra round-trip doubling the backslashes.
+      const input =
+        '{++- **Ninja Score Discrepancies**: narrative is bullish while scores are moderate.++}'
+      expect(roundTrip(input)).toBe(input)
+      // Idempotence: a second round-trip must not add more escapes.
+      expect(roundTrip(roundTrip(input))).toBe(input)
+    })
+
+    it('should parse inline markdown inside a list-marker critic line', () => {
+      const tree = parse('{++- **bold** text++}')
+      const paragraph = tree.children[0]
+      if (paragraph.type !== 'paragraph') throw new Error('expected paragraph')
+      const insert = paragraph.children.find(
+        (c: { type: string }) => c.type === 'criticInsert',
+      ) as { type: string; children: Array<{ type: string }> } | undefined
+      expect(insert).toBeDefined()
+      const types = insert!.children.map((c) => c.type)
+      expect(types).toContain('strong')
+    })
+
     it('should serialize a Milkdown-shaped mdast tree correctly', () => {
       // Milkdown's serializer builds marks as nested mdast nodes with
       // `isMark: true`. Reproduce what Milkdown would emit for `{++**bold**++}`.

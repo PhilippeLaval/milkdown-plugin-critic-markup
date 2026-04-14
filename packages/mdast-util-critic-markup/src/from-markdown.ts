@@ -30,6 +30,25 @@ function invalidatePositions(nodes: unknown[]): void {
   }
 }
 
+function parseAsParagraph(src: string): PhrasingContent[] | null {
+  try {
+    const tree = fromMarkdown(src)
+    if (tree.children.length === 1 && tree.children[0].type === 'paragraph') {
+      return tree.children[0].children as PhrasingContent[]
+    }
+  } catch {
+    // swallow — caller falls back to literal text
+  }
+  return null
+}
+
+// A zero-width sentinel we prepend to force inline (paragraph) parsing when
+// the raw line would otherwise be interpreted as a block construct (list
+// marker, heading, table, blockquote, indented code, etc.). We strip it back
+// off the first text child before returning. We don't use a visible char
+// because it must round-trip through mdast-util-from-markdown unchanged.
+const GUARD = '\u200B'
+
 function parseLineInline(line: string): PhrasingContent[] {
   if (!line) return []
   // fromMarkdown trims leading/trailing whitespace inside paragraphs, so we
@@ -40,18 +59,25 @@ function parseLineInline(line: string): PhrasingContent[] {
   const out: PhrasingContent[] = []
   if (lead) out.push({ type: 'text', value: lead })
   if (mid) {
-    let children: PhrasingContent[] | null = null
-    try {
-      const tree = fromMarkdown(mid)
-      if (tree.children.length === 1 && tree.children[0].type === 'paragraph') {
-        children = tree.children[0].children as PhrasingContent[]
-        invalidatePositions(children)
+    let children = parseAsParagraph(mid)
+    if (!children) {
+      const guarded = parseAsParagraph(GUARD + mid)
+      if (guarded && guarded.length > 0) {
+        const first = guarded[0] as { type: string; value?: string }
+        if (first.type === 'text' && first.value && first.value.startsWith(GUARD)) {
+          const stripped = first.value.slice(GUARD.length)
+          children = stripped
+            ? [{ ...(first as PhrasingContent), value: stripped } as PhrasingContent, ...guarded.slice(1)]
+            : guarded.slice(1)
+        }
       }
-    } catch {
-      // swallow — fall through to literal text
     }
-    if (children) out.push(...children)
-    else out.push({ type: 'text', value: mid })
+    if (children) {
+      invalidatePositions(children)
+      out.push(...children)
+    } else {
+      out.push({ type: 'text', value: mid })
+    }
   }
   if (trail) out.push({ type: 'text', value: trail })
   return out
