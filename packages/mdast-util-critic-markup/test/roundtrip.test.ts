@@ -142,6 +142,31 @@ describe('mdast-util-critic-markup', () => {
       expect(tree.children).toHaveLength(0)
     })
 
+    it('should not hang or crash on multi-line insertion', () => {
+      // Regression: previously a line ending inside a data token left micromark's
+      // subtokenize in a broken state and either hung or threw a splice-buffer
+      // range error (reproduced by THESIS-ALIGNMENT-Report-reviewed.md).
+      expect(roundTrip('{++line one\nline two++}')).toBe('{++line one\nline two++}')
+    })
+
+    it('should round-trip multi-line insertion containing a table', () => {
+      const input = [
+        '{++## Ninja Scores Summary',
+        '| Metric | Value |',
+        '|--------|-------|',
+        '| Team | 24.7 / 100 |',
+        '| Growth | 0.34 / 1.0 |++}',
+      ].join('\n')
+      expect(roundTrip(input)).toBe(input)
+    })
+
+    it('should round-trip multi-line substitution and comment', () => {
+      expect(roundTrip('{~~old line 1\nold line 2~>new line 1\nnew line 2~~}')).toBe(
+        '{~~old line 1\nold line 2~>new line 1\nnew line 2~~}',
+      )
+      expect(roundTrip('{>>comment\nspanning\nlines<<}')).toBe('{>>comment\nspanning\nlines<<}')
+    })
+
     it('should handle comment with special characters (XSS safe)', () => {
       const tree = parse('{>> <b>xss</b> <<}')
       const paragraph = tree.children[0]
