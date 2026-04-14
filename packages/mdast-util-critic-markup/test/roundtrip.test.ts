@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { toMarkdown } from 'mdast-util-to-markdown'
 import { criticMarkup } from 'micromark-extension-critic-markup'
 import { criticMarkupFromMarkdown } from '../src/from-markdown.js'
 import { criticMarkupToMarkdown } from '../src/to-markdown.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function parse(input: string) {
   return fromMarkdown(input, {
@@ -264,6 +269,23 @@ describe('mdast-util-critic-markup', () => {
       }
       const out = serialize(tree as never).trim()
       expect(out).toBe('{++**bold**++}')
+    })
+
+    it('should round-trip the realistic investment-memo fixture idempotently', () => {
+      // Realistic document with every CriticMarkup construct interleaved
+      // with inline markdown (**bold**, tables, nested list-marker lines,
+      // headings wrapped in inserts, multi-line substitutions with emphasis).
+      // A first round-trip may rewrite some equivalent shapes (e.g. a list
+      // marker inside an insert getting split so strong wraps the outside),
+      // but every *subsequent* round-trip must be byte-identical — no
+      // backslash drift, no construct corruption.
+      const fixture = readFileSync(
+        resolve(__dirname, '../../../e2e/test-files/investment-memo.md'),
+        'utf8',
+      )
+      const once = roundTrip(fixture)
+      const twice = roundTrip(once)
+      expect(twice).toBe(once)
     })
 
     it('should handle comment with special characters (XSS safe)', () => {
