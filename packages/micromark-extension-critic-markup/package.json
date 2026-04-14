@@ -10,7 +10,14 @@
     "directory": "packages/micromark-extension-critic-markup"
   },
   "homepage": "https://github.com/Philippe-Laval/milkdown-plugin-critic-markup#readme",
-  "keywords": ["micromark", "extension", "critic-markup", "criticmarkup", "markdown", "track-changes"],
+  "keywords": [
+    "micromark",
+    "extension",
+    "critic-markup",
+    "criticmarkup",
+    "markdown",
+    "track-changes"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -22,14 +29,18 @@
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "micromark-util-character": "^2.0.0",
     "micromark-util-symbol": "^2.0.0",
     "micromark-util-types": "^2.0.0"
+  },
+  "devDependencies": {
+    "micromark-util-character": "^2.1.1"
   }
 }
