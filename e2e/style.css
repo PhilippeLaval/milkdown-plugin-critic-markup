@@ -4,11 +4,154 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  max-width: 960px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 20px;
   background: #f8f9fa;
   color: #1a1a1a;
+}
+
+/* Editor + Sidebar layout */
+.editor-with-sidebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.critic-sidebar-root {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+
+.critic-sidebar {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  min-height: 200px;
+  font-size: 13px;
+}
+
+.critic-sidebar:empty::after {
+  content: 'No comments yet. Add a {>>comment<<} in the editor.';
+  display: block;
+  color: #999;
+  padding: 12px;
+  font-style: italic;
+}
+
+.critic-sidebar-thread {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.critic-sidebar-thread--resolved {
+  opacity: 0.6;
+}
+
+.critic-sidebar-thread--orphaned {
+  border-color: #fbbf24;
+  background: #fffbeb;
+}
+
+.critic-sidebar-thread-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.critic-sidebar-thread-summary {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.critic-sidebar-resolve-btn,
+.critic-sidebar-delete-btn {
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.critic-sidebar-resolve-btn:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.critic-sidebar-comment {
+  padding: 6px 0;
+  border-top: 1px solid #f0f0f0;
+}
+
+.critic-sidebar-reply {
+  margin-left: 16px;
+}
+
+.critic-sidebar-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.critic-sidebar-author {
+  font-weight: 600;
+  color: #333;
+}
+
+.critic-sidebar-time {
+  color: #999;
+}
+
+.critic-sidebar-comment-body {
+  font-size: 13px;
+  color: #222;
+  white-space: pre-wrap;
+}
+
+.critic-sidebar-edited {
+  font-size: 10px;
+  color: #999;
+  font-style: italic;
+}
+
+.critic-sidebar-textarea {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 6px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.critic-sidebar-group-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #888;
+  margin: 8px 0 4px;
+}
+
+.critic-sidebar-orphaned {
+  margin-top: 12px;
 }
 
 .header {

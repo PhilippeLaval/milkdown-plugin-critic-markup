@@ -2,12 +2,17 @@ import { $prose } from '@milkdown/utils'
 import { Plugin, PluginKey } from 'prosemirror-state'
 import type { Ctx } from '@milkdown/ctx'
 import {
+  criticMarkupOptionsSlice,
   criticThreadsSlice,
   criticThreadsConfigSlice,
   criticChangesSlice,
 } from './commands.js'
 import { criticCommentNode, criticInsertMark, criticDeleteMark, criticHighlightMark } from './schema.js'
-import type { CriticChange, CriticThread } from './types.js'
+import type { CriticChange, CriticThread, CriticThreadComment } from './types.js'
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+}
 
 const criticLifecycleKey = new PluginKey('criticLifecycle')
 
@@ -42,10 +47,14 @@ export const criticLifecyclePlugin = $prose((ctx) => {
     },
     view() {
       return {
-        update(view) {
+        update(view, prevState) {
           if (!hasMigrated) {
             hasMigrated = true
             migrateLegacyComments(ctx, view)
+          }
+
+          if (!prevState || !prevState.doc.eq(view.state.doc)) {
+            syncThreadsFromDoc(ctx, view)
           }
 
           const changes = criticLifecycleKey.getState(view.state) as CriticChange[]
@@ -115,6 +124,77 @@ function migrateLegacyComments(ctx: Ctx, view: import('prosemirror-view').Editor
 
   if (changed) {
     view.dispatch(tr)
+  }
+}
+
+/**
+ * Walk the current doc and make sure every criticComment node has both a
+ * stable threadId attribute and a matching entry in criticThreadsSlice.
+ * New nodes loaded from Markdown (via replaceAll / initial parse) get a
+ * fresh threadId and a stub thread synthesised from node.attrs.comment,
+ * so downstream UI (sidebar, commands) has something to render.
+ * Threads added in-memory by commands are left untouched.
+ */
+function syncThreadsFromDoc(ctx: Ctx, view: import('prosemirror-view').EditorView) {
+  const commentType = criticCommentNode.type(ctx)
+  const options = ctx.get(criticMarkupOptionsSlice)
+
+  let tr = view.state.tr
+  let trChanged = false
+  const threads = new Map(ctx.get(criticThreadsSlice))
+  let threadsChanged = false
+  const liveThreadIds = new Set<string>()
+
+  view.state.doc.descendants((node, pos) => {
+    if (node.type !== commentType) return true
+
+    let threadId: string = node.attrs.threadId
+    if (!threadId) {
+      threadId = generateId()
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, threadId })
+      trChanged = true
+    }
+    liveThreadIds.add(threadId)
+
+    if (!threads.has(threadId)) {
+      const body = String(node.attrs.comment ?? '')
+      const rootComment: CriticThreadComment = {
+        commentId: generateId(),
+        threadId,
+        authorId: node.attrs.authorId || options.authorId,
+        authorDisplayName: '',
+        body,
+        createdAt: Date.now(),
+      }
+      threads.set(threadId, {
+        threadId,
+        anchorText: body,
+        resolved: Boolean(node.attrs.resolved),
+        comments: [rootComment],
+      })
+      threadsChanged = true
+    }
+
+    return false
+  })
+
+  // Prune stale threads that have no corresponding comment node and carry no
+  // user-authored activity (no replies, not resolved). This keeps the sidebar
+  // clean across replaceAll() file loads while preserving genuine "orphaned"
+  // threads whose anchor text the user deleted.
+  for (const [threadId, thread] of threads) {
+    if (liveThreadIds.has(threadId)) continue
+    const hasActivity = thread.resolved || thread.comments.length > 1
+    if (!hasActivity) {
+      threads.delete(threadId)
+      threadsChanged = true
+    }
+  }
+
+  if (trChanged) view.dispatch(tr)
+  if (threadsChanged) {
+    ctx.set(criticThreadsSlice, threads)
+    ctx.get(criticThreadsConfigSlice).onThreadsChange?.(threads)
   }
 }
 
