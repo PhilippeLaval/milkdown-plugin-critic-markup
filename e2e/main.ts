@@ -1,8 +1,12 @@
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core'
+import { Editor, rootCtx, defaultValueCtx, commandsCtx, editorViewCtx } from '@milkdown/core'
+import { TextSelection } from 'prosemirror-state'
 import { commonmark } from '@milkdown/preset-commonmark'
 import { gfm } from '@milkdown/preset-gfm'
 import { criticMarkupPlugin } from '../packages/plugin-critic-markup/src/index.js'
 import { getMarkdown, replaceAll } from '@milkdown/utils'
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import { CriticSidebar } from '@milkdown/plugin-critic-markup-react'
 
 // Import test files as raw strings
 import basicMd from './test-files/basic.md?raw'
@@ -45,6 +49,15 @@ async function main() {
   ;(window as any).__getMarkdown = () => editor.action(getMarkdown())
   ;(window as any).__loadMarkdown = (md: string) => editor.action(replaceAll(md))
   ;(window as any).__testFiles = testFiles
+  ;(window as any).__callCommand = (name: string, payload?: unknown) =>
+    editor.ctx.get(commandsCtx).call(name as never, payload as never)
+  ;(window as any).__getView = () => editor.ctx.get(editorViewCtx)
+  ;(window as any).__selectRange = (from: number, to: number) => {
+    const view = editor.ctx.get(editorViewCtx)
+    const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to))
+    view.dispatch(tr)
+    view.focus()
+  }
 
   const fileNameBadge = document.getElementById('file-name')!
   const outputEl = document.getElementById('output')!
@@ -147,6 +160,30 @@ async function main() {
       console.log('[Playground] Rejected all changes')
     })
   })
+
+  // --- Mount React sidebar ---
+  const editorRef = { current: editor }
+  const mount = document.getElementById('critic-sidebar-mount')!
+  const root = createRoot(mount)
+  const callCommand = (name: string, payload?: unknown) =>
+    editor.ctx.get(commandsCtx).call(name as never, payload as never)
+
+  root.render(
+    React.createElement(CriticSidebar, {
+      editor: editorRef as React.RefObject<Editor | null>,
+      currentAuthorId: 'user',
+      onReply: (threadId, body, parentCommentId) => {
+        callCommand('AddReply', { threadId, body, parentCommentId })
+      },
+      onResolve: (threadId) => {
+        callCommand('ResolveThread', { threadId, resolved: true })
+      },
+      onDelete: (threadId, commentId) => {
+        callCommand('DeleteComment', { threadId, commentId })
+      },
+    }),
+  )
+  ;(window as any).__sidebarRoot = root
 
   console.log('[Playground] Editor ready')
 }

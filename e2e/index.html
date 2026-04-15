@@ -52,10 +52,16 @@
       </div>
     </div>
 
-    <!-- Editor -->
+    <!-- Editor + Sidebar -->
     <div class="editor-container">
       <div class="editor-label">Editor <span id="file-name" class="file-name-badge"></span></div>
-      <div id="editor"></div>
+      <div class="editor-with-sidebar">
+        <div id="editor"></div>
+        <div id="critic-sidebar-root" class="critic-sidebar-root">
+          <div class="editor-label">Comments</div>
+          <div id="critic-sidebar-mount"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Output panel -->

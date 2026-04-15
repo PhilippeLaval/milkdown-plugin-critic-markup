@@ -26,6 +26,9 @@ importers:
       '@milkdown/utils':
         specifier: '>=7.0.0'
         version: 7.20.0
+      '@rollup/rollup-darwin-x64':
+        specifier: ^4.60.1
+        version: 4.60.1
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.39
@@ -56,6 +59,12 @@ importers:
       prosemirror-view:
         specifier: '>=1.31.0'
         version: 1.41.8
+      react:
+        specifier: ^19.0.0
+        version: 19.2.5
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.5(react@19.2.5)
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.9)(typescript@5.9.3)
@@ -2501,8 +2510,7 @@ snapshots:
   '@rollup/rollup-darwin-arm64@4.60.1':
     optional: true
 
-  '@rollup/rollup-darwin-x64@4.60.1':
-    optional: true
+  '@rollup/rollup-darwin-x64@4.60.1': {}
 
   '@rollup/rollup-freebsd-arm64@4.60.1':
     optional: true
